@@ -2,6 +2,8 @@
 
 import argparse
 import requests
+from collections import OrderedDict
+from pprint import pprint
 
 YANDEX_GEOCODER_URL = 'http://geocode-maps.yandex.ru/1.x/'
 
@@ -9,21 +11,15 @@ FORMAT_CHOICES = ('json', 'xml')
 KIND_CHOICES = ('house', 'street', 'metro', 'district', 'locality')
 LANG_CHOICES = ('ru-RU', 'uk-UA', 'be-BY', 'en-US', 'en-BR', 'tr-TR')
 
-PRECISIONS = {
-    'exact': 4,
-    'number': 3,
-    'near': 2,
-    'range': 2,
-    'street': 2,
-    'other': 1,
-}
+PRECISIONS = {k:v for k, v in enumerate(('other', 'street', 'range', 'near','number','exact'))}
 
 
 def geocode(geocode, kind=None, format=None, ll=None, spn=None,
-            rspn=None, results=None, skip=None, lang=None, raw_out=False):
+            rspn=None, results=None, skip=None, lang=None):
     """For detailed description of parameters and its defaults, see
     http://api.yandex.com/maps/doc/geocoder/desc/concepts/input_params.xml
     """
+
     if kind and kind not in KIND_CHOICES:
         raise ValueError('kind should be one of ' + str(KIND_CHOICES))
 
@@ -36,7 +32,7 @@ def geocode(geocode, kind=None, format=None, ll=None, spn=None,
     params = {k: v for k, v in vars().items() if v}
     r = requests.get(YANDEX_GEOCODER_URL, params=params)
     if r.status_code == requests.codes.ok:
-        if format == 'json' and not raw_out:
+        if format == 'json':
             return r.json()
         else:
             return r.text
@@ -45,13 +41,11 @@ def geocode(geocode, kind=None, format=None, ll=None, spn=None,
 
 
 def _flatten(d):
-    items = []
     for k, v in d.items():
         if isinstance(v, dict):
-            items.extend(_flatten(v))
+            yield from _flatten(v)
         else:
-            items.append((k, v))
-    return items
+            yield (k, v)
 
 
 def get_geo_objects(result):
@@ -59,7 +53,7 @@ def get_geo_objects(result):
     in json format to flat list of dicts.
     """
     for o in result['response']['GeoObjectCollection']['featureMember']:
-        yield dict(_flatten(o))
+        yield OrderedDict(_flatten(o))
 
 
 def get_most_precise(objs):
@@ -80,9 +74,16 @@ if __name__ == '__main__':
     parser.add_argument('--results')
     parser.add_argument('--skip')
     parser.add_argument('--lang', choices=LANG_CHOICES)
+    parser.add_argument('--flat', action='store_true', default=False,
+                        help='flatten results for better readability (only for json format)')
 
     args = parser.parse_args()
+    if args.flat and not args.format:
+        args.format = 'json'
     result = geocode(args.geocode, args.kind, args.format,
                      args.ll, args.spn, args.rspn,
-                     args.results, args.skip, args.lang, True)
-    print(result)
+                     args.results, args.skip, args.lang)
+    if args.flat and args.format == 'json':
+        print(pprint(list(get_geo_objects(result))))
+    else:
+        print(result)
