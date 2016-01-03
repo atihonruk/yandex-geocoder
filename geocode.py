@@ -11,7 +11,7 @@ FORMAT_CHOICES = ('json', 'xml')
 KIND_CHOICES = ('house', 'street', 'metro', 'district', 'locality')
 LANG_CHOICES = ('ru-RU', 'uk-UA', 'be-BY', 'en-US', 'en-BR', 'tr-TR')
 
-PRECISIONS = {k:v for k, v in enumerate(('other', 'street', 'range', 'near','number','exact'))}
+PRECISIONS = {v: k for k, v in enumerate(('other', 'street', 'range', 'near', 'number', 'exact'))}
 
 
 def geocode(geocode, kind=None, format=None, ll=None, spn=None,
