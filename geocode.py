@@ -32,10 +32,7 @@ def geocode(geocode, kind=None, format=None, ll=None, spn=None,
     params = {k: v for k, v in vars().items() if v}
     r = requests.get(YANDEX_GEOCODER_URL, params=params)
     if r.status_code == requests.codes.ok:
-        if format == 'json':
-            return r.json()
-        else:
-            return r.text
+        return r.json() if format == 'json' else r.text
     else:
         r.raise_for_status()
 
@@ -48,12 +45,14 @@ def _flatten(d):
             yield (k, v)
 
 
-def get_geo_objects(result):
+def get_geo_objects(result, ensure_locality=None):
     """Converts GeoObjects from geocoder query results
     in json format to flat list of dicts.
     """
     for o in result['response']['GeoObjectCollection']['featureMember']:
-        yield OrderedDict(_flatten(o))
+        go = OrderedDict(_flatten(o))
+        if not ensure_locality or go.get('LocalityName') == ensure_locality:
+            yield go
 
 
 def get_most_precise(objs):
